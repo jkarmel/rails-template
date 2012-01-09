@@ -1,0 +1,112 @@
+#!/usr/bin/env ruby
+
+# NOTE: This script must be run in the directory containing the rails app
+current_path = File.dirname __FILE__
+require './' + current_path + '/lib/scripting'
+
+# Get project name from the directory containing the rails app
+project = File.basename(Dir.getwd).gsub "-", "_"
+
+Scripting.headline "Using '#{project}' as the project name"
+
+if ARGV.length == 0
+  puts "ERROR: Expected Postgres password as second argument, please retry."
+  exit 1
+end
+
+# Followed instructions from http://sirupsen.com/get-started-right-with-rvm/
+Scripting.headline "Setting up rvm"
+# Creating .rvmrc file
+File.open('.rvmrc', 'w') do |f|
+  f.puts("rvm use 1.9.2@#{project}")
+end
+
+# Install RVM if it's missing'
+if `which rvm` == ''
+  puts %x[curl -s https://raw.github.com/wayneeseguin/rvm/master/binscripts/rvm-installer > rvm-installer && chmod 755 rvm-installer && ./rvm-installer && rm rvm-installer]
+  Scripting.append_and_source_bprofile '[[ -s "$HOME/.rvm/scripts/rvm" ]] && . "$HOME/.rvm/scripts/rvm" # This loads RVM into a shell session.'
+end
+puts %x[rvm install 1.9.2] unless `rvm list`.match "1.9.2"
+puts %x[$HOME/.rvm/scripts/rvm 1.9.2]
+
+puts %x[rvm gemset create #{project}]
+puts %x[rvm reload]
+
+Scripting.headline 'Setting up bundler'
+puts %x[gem install bundler]
+puts %x[bundle install]
+
+Scripting.headline 'Setting up database'
+db_config_yaml = <<-YML
+# PostgreSQL. Versions 7.4 and 8.x are supported.
+#
+# Install the pg driver:
+#   gem install pg
+# On Mac OS X with macports:
+#   gem install pg -- --with-pg-config=/opt/local/lib/postgresql84/bin/pg_config
+# On Windows:
+#   gem install pg
+#       Choose the win32 build.
+#       Install PostgreSQL and put its /bin directory on your path.
+#
+# Configure Using Gemfile
+# gem 'pg'
+#
+development:
+  adapter: postgresql
+  encoding: unicode
+  database: #{project}_development
+  pool: 5
+  username: #{project}
+  password: bampow
+
+  # Connect on a TCP socket. Omitted by default since the client uses a
+  # domain socket that doesn't need configuration. Windows does not have
+  # domain sockets, so uncomment these lines.
+  #host: localhost
+  #port: 5432
+
+  # Schema search path. The server defaults to $user,public
+  #schema_search_path: myapp,sharedapp,public
+
+  # Minimum log levels, in increasing order:
+  #   debug5, debug4, debug3, debug2, debug1,
+  #   log, notice, warning, error, fatal, and panic
+  # The server defaults to notice.
+  #min_messages: warning
+
+# Warning: The database defined as "test" will be erased and
+# re-generated from your development database when you run "rake".
+# Do not set this db to the same as development or production.
+test:
+  adapter: postgresql
+  encoding: unicode
+  database: #{project}_test
+  pool: 5
+  username: #{project}
+  password: bampow
+
+production:
+  adapter: postgresql
+  encoding: unicode
+  database: #{project}_production
+  pool: 5
+  username: #{project}
+  password: bampow
+YML
+
+File.open("./#{current_path}/../config/database.yml", 'w') do |f|
+  f.puts db_config_yaml
+end
+
+# Create database user
+create_user_sql = <<-SQL
+CREATE ROLE rails_template LOGIN
+  PASSWORD 'bampow'
+    NOSUPERUSER INHERIT CREATEDB NOCREATEROLE;
+SQL
+
+puts %x[PGPASSWORD=#{ARGV[0]} psql --username=postgres --no-password -c "#{create_user_sql}"]
+
+Scripting.headline 'Creating database'
+puts %x[rake db:create]

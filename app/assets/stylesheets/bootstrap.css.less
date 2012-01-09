@@ -1,0 +1,32 @@
+@import "twitter/bootstrap/mixins.less";
+@import "twitter/bootstrap/variables.less";
+
+b {
+  font-weight: bold;
+}
+
+@topbar-height: 60px;
+
+.topbar {
+  height: @topbar-height;
+  .fill {
+    .gradientBar(@blue, @blueDark);
+  }
+}
+
+.below-topbar {
+  margin-top: @topbar-height;
+}
+
+@hero-unit-padding: 60px;
+
+.hero-unit {
+  padding: @hero-unit-padding;
+}
+
+.btn.x-large {
+  font-size: @basefont + 6px;
+  line-height: normal;
+  padding: 15px 14px 15px;
+  .border-radius(6px);
+}
